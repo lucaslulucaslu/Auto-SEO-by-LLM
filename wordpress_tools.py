@@ -3,7 +3,7 @@ from langchain_core.output_parsers import StrOutputParser
 import pymysql
 import os
 import re
-import markdown
+import markdown2
 import requests
 import base64
 from bs4 import BeautifulSoup
@@ -161,10 +161,10 @@ def insert_keyword_url(content, lang_type="cn"):
     tags = set()
     n = 0
     if lang_type == "cn":
-        ranking_string = """（{}USNews<a href="https://www.forwardpathway.com/ranking">美国大学排名</a>：{}）"""
+        ranking_string = """<span class="current_usnews_ranking">（{}USNews<a href="https://www.forwardpathway.com/ranking">美国大学排名</a>：{}）</span>"""
         (ranking_year, keywords) = get_keywords_list(lang_type="cn")
     else:
-        ranking_string = """ (<a href="https://www.forwardpathway.us/us-colleges-ranking">{} USNews Ranking</a>: {}) """
+        ranking_string = """ <span class="current_usnews_ranking">(<a href="https://www.forwardpathway.us/us-colleges-ranking">{} USNews Ranking</a>: {}) </span>"""
         (ranking_year, keywords) = get_keywords_list(lang_type="en")
     for key, row in keywords.iterrows():
         keyword = row["keyword"].replace("-Main Campus", "")
@@ -209,7 +209,26 @@ def retrieve_wordpress_post(post_ID,lang_type='cn'):
     else:
         response = requests.get(wp_post_url + "/" + str(post_ID), headers=header)
     return response
-    
+
+def retrieve_wordpress_image(image_ID,lang_type='cn'):
+    if lang_type=='en':
+        response = requests.get(wp_media_url_en + "/" + str(image_ID), headers=header_en)
+    else:
+        response = requests.get(wp_media_url + "/" + str(image_ID), headers=header)
+    return response
+def check_insert_image(content,feature_image_ID,lang_type='cn'):
+    if content.find("<img")>0:
+        return content
+    elif feature_image_ID>0:
+        response=retrieve_wordpress_image(feature_image_ID,lang_type).json()
+        image_url=response['guid']["rendered"]
+        alt_text=response["alt_text"]
+        content_sep=len(content)//3
+        content=content[:content_sep]+content[content_sep:].replace("""</p>\n""","""</p>\n<img src="{}" alt="{}">""".format(image_url,alt_text),1)
+    else:
+        content=content#here we can generate image from Dall-E
+    return content
+        
 def post_wordpress_post(
     post_title,
     post_body,
@@ -275,6 +294,7 @@ def tags_to_IDs(tag_names=[]):
     )
     cursor = connection.cursor()
     for tag_name in tag_names:
+        tag_name=tag_name.replace("&","&amp;")
         query = """SELECT t1.term_id FROM fp_forwardpathway.wp_mmcp_terms t1 JOIN fp_forwardpathway.wp_mmcp_term_taxonomy t2 ON t2.term_id=t1.term_id AND t2.taxonomy="post_tag" WHERE t1.name=%s"""
         rows_count = cursor.execute(query, tag_name)
         if rows_count > 0:
@@ -301,8 +321,9 @@ def tags_to_IDs_en(tag_names=[]):
     )
     cursor = connection.cursor()
     for tag_name in tag_names:
+        tag_name=tag_name.replace("&","&amp;")
         query = """SELECT t1.term_id FROM fpus_wordpress.wp_terms t1 JOIN fpus_wordpress.wp_term_taxonomy t2 ON t2.term_id=t1.term_id AND t2.taxonomy="post_tag" WHERE t1.name=%s"""
-        rows_count = cursor.execute(query, tag_name.replace("&", "&amp;"))
+        rows_count = cursor.execute(query, tag_name)
         if rows_count > 0:
             result = cursor.fetchone()
             tags.add(result["term_id"])
@@ -347,6 +368,7 @@ def update_summary_qa(post_ID,content,llm):
     )
     qa_chain = qa_prompt | llm | StrOutputParser()
     qa = qa_chain.invoke({"content": content})
+    qa=markdown2.markdown(qa).replace("</p>\n\n<p>","</p>\n<p>")
     connection = pymysql.connect(
         db=os.environ["db_name"],
         user=os.environ["db_user"],
@@ -358,7 +380,7 @@ def update_summary_qa(post_ID,content,llm):
     cursor = connection.cursor()
     query = """INSERT INTO fp_chatGPT.`posts`(`post_ID`, `Summary`, `QandA`) VALUES (%s,%s,%s) ON DUPLICATE KEY UPDATE `Summary`=%s,`QandA`=%s"""
     cursor.execute(
-        query, (post_ID, summary, markdown.markdown(qa), summary, markdown.markdown(qa))
+        query, (post_ID, summary, qa, summary, qa)
     )
     connection.commit()
     cursor.close()
