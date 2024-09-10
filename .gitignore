@@ -2,3 +2,4 @@ images/
 auto_rewrite_images/
 .ipynb_checkpoints/
 remove old comments SQL.txt
+venv/

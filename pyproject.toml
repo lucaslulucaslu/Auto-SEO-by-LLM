@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "auto-seo-by-llm"
+version = "0.1.0"
+description = ""
+authors = ["Lucas Lu <33080381+shichenglu@users.noreply.github.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+markdown2 = "^2.5.0"
+markdownify = "^0.13.1"
+pandas = "^2.2.2"
+tiktoken = "^0.7.0"
+langchain = "^0.2.16"
+langgraph = "^0.2.19"
+langchain-community = "^0.2.16"
+langchain-openai = "^0.1.23"
+pydantic = "^2.9.1"
+pymysql = "^1.1.1"
+langchain-experimental = "^0.0.65"
+neo4j = "^5.24.0"
+beautifulsoup4 = "^4.12.3"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
