@@ -1,14 +1,13 @@
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
-import pymysql
+import base64
 import os
 import re
-import markdown2
-import requests
-import base64
-from bs4 import BeautifulSoup
-import pandas as pd
 
+import markdown2
+import pandas as pd
+import pymysql
+import requests
+from bs4 import BeautifulSoup
+from utilities.llm_wrapper import llm_wrapper
 
 wp_url = "https://www.forwardpathway.com/wp-json/wp/v2"
 wp_post_url = wp_url + "/posts"
@@ -34,6 +33,7 @@ credentials_en = user_id_en + ":" + user_app_password_en
 token_en = base64.b64encode(credentials_en.encode())
 header_en = {"Authorization": "Basic " + token_en.decode("utf-8")}
 
+
 def set_news_url_flag(url=""):
     if len(url) > 0:
         connection = pymysql.connect(
@@ -51,7 +51,8 @@ def set_news_url_flag(url=""):
         cursor.close()
         connection.close()
     return
-    
+
+
 def get_news_urls():
     connection = pymysql.connect(
         db=os.environ["db_name"],
@@ -73,7 +74,8 @@ def get_news_urls():
     cursor.close()
     connection.close()
     return urls
-    
+
+
 def get_rewrite_post_ID():
     connection = pymysql.connect(
         db=os.environ["db_name"],
@@ -85,7 +87,8 @@ def get_rewrite_post_ID():
     )
     cursor = connection.cursor()
     query = """SELECT t3.ID FROM (SELECT t2.ID,t2.post_modified FROM fp_forwardpathway.`wp_mmcp_term_relationships` t1
-JOIN fp_forwardpathway.wp_mmcp_posts t2 ON t2.ID=t1.object_id AND t2.post_status="publish" AND t2.ID NOT IN (SELECT post_id FROM fp_chatGPT.void_posts)
+JOIN fp_forwardpathway.wp_mmcp_posts t2 ON t2.ID=t1.object_id AND t2.post_status="publish"
+AND t2.ID NOT IN (SELECT post_id FROM fp_chatGPT.void_posts)
 WHERE t1.`term_taxonomy_id` IN (3,2294,2295,2293,2180,1,1758,35,2350,2351,36,6,1278)
 GROUP BY t2.ID ORDER BY t2.post_modified ASC LIMIT 10) t3
 ORDER BY RAND() LIMIT 1"""
@@ -95,7 +98,8 @@ ORDER BY RAND() LIMIT 1"""
     cursor.close()
     connection.close()
     return post_ID
-    
+
+
 def get_keywords_list(lang_type="cn"):
     connection = pymysql.connect(
         db=os.environ["db_name"],
@@ -113,9 +117,10 @@ def get_keywords_list(lang_type="cn"):
     efa_year = row["efa"]
 
     if lang_type == "cn":
-        query = """SELECT t1.cname as keyword,concat("https://www.forwardpathway.com/",t1.postid) as url,t2.term_id as tag_id, t3.rank FROM fp_ranking.`colleges` t1
-    LEFT JOIN fp_forwardpathway.`wp_mmcp_terms` t2 ON t1.cname=REPLACE(t2.name,"相关新闻","") AND t2.name LIKE "%相关新闻"
-    LEFT JOIN fp_ranking.us_rankings t3 ON t3.postid=t1.postid AND t3.year={} AND t3.type=1""".format(
+        query = """SELECT t1.cname as keyword,concat("https://www.forwardpathway.com/",t1.postid) as url,t2.term_id as tag_id, t3.rank
+        FROM fp_ranking.`colleges` t1
+        LEFT JOIN fp_forwardpathway.`wp_mmcp_terms` t2 ON t1.cname=REPLACE(t2.name,"相关新闻","") AND t2.name LIKE "%相关新闻"
+        LEFT JOIN fp_ranking.us_rankings t3 ON t3.postid=t1.postid AND t3.year={} AND t3.type=1""".format(
             ranking_year
         )
         cursor.execute(query)
@@ -129,12 +134,13 @@ def get_keywords_list(lang_type="cn"):
         for row in rows:
             keywords_array = keywords_array + [row]
     else:
-        query = """SELECT t2.post_title as keyword,concat("https://www.forwardpathway.us/",t2.post_name) as url,t5.term_id as tag_id,t4.rank FROM fpus_colleges.transform t1
-JOIN fpus_wordpress.wp_posts t2 ON t2.ID=t1.postid
-JOIN fp_IPEDS.EFA t6 ON t6.UNITID=t1.unitid AND t6.Year={} AND t6.EFALEVEL=1 AND t6.EFTOTLT>1000
-LEFT JOIN fp_ranking.colleges t3 ON t3.unitid=t1.unitid
-LEFT JOIN fp_ranking.us_rankings t4 ON t4.postid=t3.postid AND t4.type=1 AND t4.year={}
-LEFT JOIN fpus_wordpress.wp_terms t5 ON t5.name=t2.post_title""".format(
+        query = """SELECT t2.post_title as keyword,concat("https://www.forwardpathway.us/",t2.post_name) as url,t5.term_id as tag_id,t4.rank
+            FROM fpus_colleges.transform t1
+            JOIN fpus_wordpress.wp_posts t2 ON t2.ID=t1.postid
+            JOIN fp_IPEDS.EFA t6 ON t6.UNITID=t1.unitid AND t6.Year={} AND t6.EFALEVEL=1 AND t6.EFTOTLT>1000
+            LEFT JOIN fp_ranking.colleges t3 ON t3.unitid=t1.unitid
+            LEFT JOIN fp_ranking.us_rankings t4 ON t4.postid=t3.postid AND t4.type=1 AND t4.year={}
+            LEFT JOIN fpus_wordpress.wp_terms t5 ON t5.name=t2.post_title""".format(
             efa_year, ranking_year
         )
         cursor.execute(query)
@@ -156,15 +162,22 @@ LEFT JOIN fpus_wordpress.wp_terms t5 ON t5.name=t2.post_title""".format(
 
     return (ranking_year, keywords)
 
+
 def insert_keyword_url(content, lang_type="cn"):
-    soup = BeautifulSoup(content,"html.parser")
+    soup = BeautifulSoup(content, "html.parser")
     tags = set()
     n = 0
     if lang_type == "cn":
-        ranking_string = """<span class="current_usnews_ranking">（{}USNews<a href="https://www.forwardpathway.com/ranking">美国大学排名</a>：{}）</span>"""
+        ranking_string = (
+            """<span class="current_usnews_ranking">"""
+            + """（{}USNews<a href="https://www.forwardpathway.com/ranking">美国大学排名</a>：{}）</span>"""
+        )
         (ranking_year, keywords) = get_keywords_list(lang_type="cn")
     else:
-        ranking_string = """ <span class="current_usnews_ranking">(<a href="https://www.forwardpathway.us/us-colleges-ranking">{} USNews Ranking</a>: {}) </span>"""
+        ranking_string = (
+            """ <span class="current_usnews_ranking">"""
+            + """(<a href="https://www.forwardpathway.us/us-colleges-ranking">{} USNews Ranking</a>: {}) </span>"""
+        )
         (ranking_year, keywords) = get_keywords_list(lang_type="en")
     for key, row in keywords.iterrows():
         keyword = row["keyword"].replace("-Main Campus", "")
@@ -203,32 +216,43 @@ def insert_keyword_url(content, lang_type="cn"):
             break
     return (str(soup), tags)
 
-def retrieve_wordpress_post(post_ID,lang_type='cn'):
-    if lang_type=='en':
+
+def retrieve_wordpress_post(post_ID, lang_type="cn"):
+    if lang_type == "en":
         response = requests.get(wp_post_url_en + "/" + str(post_ID), headers=header_en)
     else:
         response = requests.get(wp_post_url + "/" + str(post_ID), headers=header)
     return response
 
-def retrieve_wordpress_image(image_ID,lang_type='cn'):
-    if lang_type=='en':
-        response = requests.get(wp_media_url_en + "/" + str(image_ID), headers=header_en)
+
+def retrieve_wordpress_image(image_ID, lang_type="cn"):
+    if lang_type == "en":
+        response = requests.get(
+            wp_media_url_en + "/" + str(image_ID), headers=header_en
+        )
     else:
         response = requests.get(wp_media_url + "/" + str(image_ID), headers=header)
     return response
-def check_insert_image(content,feature_image_ID,lang_type='cn'):
-    if content.find("<img")>0:
+
+
+def check_insert_image(content, feature_image_ID, lang_type="cn"):
+    if content.find("<img") > 0:
         return content
-    elif feature_image_ID>0:
-        response=retrieve_wordpress_image(feature_image_ID,lang_type).json()
-        image_url=response['guid']["rendered"]
-        alt_text=response["alt_text"]
-        content_sep=len(content)//3
-        content=content[:content_sep]+content[content_sep:].replace("""</p>\n""","""</p>\n<img src="{}" alt="{}">""".format(image_url,alt_text),1)
+    elif feature_image_ID > 0:
+        response = retrieve_wordpress_image(feature_image_ID, lang_type).json()
+        image_url = response["guid"]["rendered"]
+        alt_text = response["alt_text"]
+        content_sep = len(content) // 3
+        content = content[:content_sep] + content[content_sep:].replace(
+            """</p>\n""",
+            """</p>\n<img src="{}" alt="{}">""".format(image_url, alt_text),
+            1,
+        )
     else:
-        content=content#here we can generate image from Dall-E
+        content = content  # here we can generate image from Dall-E
     return content
-        
+
+
 def post_wordpress_post(
     post_title,
     post_body,
@@ -269,6 +293,7 @@ def post_wordpress_post(
     response = requests.post(url, headers=h, json=post_data)
     return response
 
+
 def post_wordpress_file(file_path, lang_type="cn"):
     with open(file_path, "rb") as file:
         media = {
@@ -281,7 +306,7 @@ def post_wordpress_file(file_path, lang_type="cn"):
             response = requests.post(wp_media_url, headers=header, files=media)
     return response
 
-    
+
 def tags_to_IDs(tag_names=[]):
     tags = set()
     connection = pymysql.connect(
@@ -294,8 +319,9 @@ def tags_to_IDs(tag_names=[]):
     )
     cursor = connection.cursor()
     for tag_name in tag_names:
-        tag_name=tag_name.replace("&","&amp;")
-        query = """SELECT t1.term_id FROM fp_forwardpathway.wp_mmcp_terms t1 JOIN fp_forwardpathway.wp_mmcp_term_taxonomy t2 ON t2.term_id=t1.term_id AND t2.taxonomy="post_tag" WHERE t1.name=%s"""
+        tag_name = tag_name.replace("&", "&amp;")
+        query = """SELECT t1.term_id FROM fp_forwardpathway.wp_mmcp_terms t1 \
+            JOIN fp_forwardpathway.wp_mmcp_term_taxonomy t2 ON t2.term_id=t1.term_id AND t2.taxonomy="post_tag" WHERE t1.name=%s"""
         rows_count = cursor.execute(query, tag_name)
         if rows_count > 0:
             result = cursor.fetchone()
@@ -309,6 +335,7 @@ def tags_to_IDs(tag_names=[]):
     connection.close()
     return tags
 
+
 def tags_to_IDs_en(tag_names=[]):
     tags = set()
     connection = pymysql.connect(
@@ -321,8 +348,9 @@ def tags_to_IDs_en(tag_names=[]):
     )
     cursor = connection.cursor()
     for tag_name in tag_names:
-        tag_name=tag_name.replace("&","&amp;")
-        query = """SELECT t1.term_id FROM fpus_wordpress.wp_terms t1 JOIN fpus_wordpress.wp_term_taxonomy t2 ON t2.term_id=t1.term_id AND t2.taxonomy="post_tag" WHERE t1.name=%s"""
+        tag_name = tag_name.replace("&", "&amp;")
+        query = """SELECT t1.term_id FROM fpus_wordpress.wp_terms t1 JOIN fpus_wordpress.wp_term_taxonomy t2 ON t2.term_id=t1.term_id \
+            AND t2.taxonomy="post_tag" WHERE t1.name=%s"""
         rows_count = cursor.execute(query, tag_name)
         if rows_count > 0:
             result = cursor.fetchone()
@@ -335,25 +363,15 @@ def tags_to_IDs_en(tag_names=[]):
     cursor.close()
     connection.close()
     return tags
-    
-def update_summary_qa(post_ID,content,llm):
 
-    summary_prompt = ChatPromptTemplate.from_messages(
-        [
-            (
-                "system",
-                """你的角色是美国留学专家，输入内容是一篇与美国留学相关的文章，根据输入的内容对全文进行总结，并在最后估计全文的阅读时间，输出内容250字左右，不分段，只包含总结内容不包含任何标题。""",
-            ),
-            ("human", "文章内容: {content}"),
-        ]
-    )
-    summary_chain = summary_prompt | llm | StrOutputParser()
-    summary = summary_chain.invoke({"content": content})
-    qa_prompt = ChatPromptTemplate.from_messages(
-        [
-            (
-                "system",
-                """你是美国留学领域的专家。用户将输入一段关于美国留学相关的文章，请你根据该文章内容提出5个读者可能会感兴趣的问题，并分别提供详细的回答。\
+
+def update_summary_qa(post_ID, content):
+
+    system_prompt = """你的角色是美国留学专家，输入内容是一篇与美国留学相关的文章，根据输入的内容对全文进行总结，并在最后估计全文的阅读时间，\
+        输出内容250字左右，不分段，只包含总结内容不包含任何标题。"""
+    user_prompt = f"文章内容: {content}"
+    summary = llm_wrapper(system_prompt, user_prompt)
+    system_prompt = """你是美国留学领域的专家。用户将输入一段关于美国留学相关的文章，请你根据该文章内容提出5个读者可能会感兴趣的问题，并分别提供详细的回答。\
                 请确保每个问题都与该文章内容紧密相关，并对读者具有实用价值。输出结果请勿将所有问题集中在一起展示，应该按以下格式逐个显示问题和答案，每个问题后面紧接其对应的回答。以下是最终输出格式的例子：
                 '大家都在问的问题：
                 问题1: 美国大学申请的截止日期是什么时候？
@@ -361,14 +379,10 @@ def update_summary_qa(post_ID,content,llm):
                 问题2: 美国留学需要准备哪些材料？
                 申请美国留学通常需要准备以下材料：高中成绩单、托福或雅思成绩、SAT或ACT成绩、推荐信、个人陈述、课外活动证明等。不同的大学可能有额外的要求，建议学生仔细阅读申请指南。
                 ...'
-                请确保按照上述格式输出结果。""",
-            ),
-            ("human", "文章内容: {content}"),
-        ]
-    )
-    qa_chain = qa_prompt | llm | StrOutputParser()
-    qa = qa_chain.invoke({"content": content})
-    qa=markdown2.markdown(qa).replace("</p>\n\n<p>","</p>\n<p>")
+                请确保按照上述格式输出结果。"""
+    user_prompt = f"文章内容: {content}"
+    qa = llm_wrapper(system_prompt, user_prompt)
+    qa = markdown2.markdown(qa).replace("</p>\n\n<p>", "</p>\n<p>")
     connection = pymysql.connect(
         db=os.environ["db_name"],
         user=os.environ["db_user"],
@@ -378,10 +392,9 @@ def update_summary_qa(post_ID,content,llm):
         cursorclass=pymysql.cursors.DictCursor,
     )
     cursor = connection.cursor()
-    query = """INSERT INTO fp_chatGPT.`posts`(`post_ID`, `Summary`, `QandA`) VALUES (%s,%s,%s) ON DUPLICATE KEY UPDATE `Summary`=%s,`QandA`=%s"""
-    cursor.execute(
-        query, (post_ID, summary, qa, summary, qa)
-    )
+    query = """INSERT INTO fp_chatGPT.`posts`(`post_ID`, `Summary`, `QandA`) VALUES (%s,%s,%s) \
+        ON DUPLICATE KEY UPDATE `Summary`=%s,`QandA`=%s"""
+    cursor.execute(query, (post_ID, summary, qa, summary, qa))
     connection.commit()
     cursor.close()
     connection.close()
