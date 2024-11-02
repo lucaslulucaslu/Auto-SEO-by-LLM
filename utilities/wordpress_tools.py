@@ -3,6 +3,7 @@ import os
 import re
 
 import markdown2
+import markdownify
 import pandas as pd
 import pymysql
 import requests
@@ -368,7 +369,7 @@ def tags_to_IDs_en(tag_names=[]):
 
 def update_summary_qa(post_ID, content):
 
-    system_prompt = """你的角色是美国留学专家，输入内容是一篇与美国留学相关的文章，根据输入的内容对全文进行总结，并在最后估计全文的阅读时间，\
+    system_prompt = """你的角色是美国留学专家，输入内容是一篇与美国留学相关的文章，根据输入的内容对全文进行总结，并在最后根据文章长度估计全文的阅读时间，\
         输出内容250字左右，不分段，只包含总结内容不包含任何标题。"""
     user_prompt = f"文章内容: {content}"
     summary = llm_wrapper(system_prompt, user_prompt)
@@ -408,3 +409,88 @@ def image_insert_fuc(content):
     paragraphs.insert(middle_index, "[image_placeholder]")
     new_content = "\n\n".join(paragraphs)
     return new_content
+
+
+def replace_amcharts_code(content):
+    amcharts = re.finditer(r"""\[amcharts id="chart\-(\d+)"\]""", content)
+    for amchart in amcharts:
+        amchart_id = amchart.group(1)
+        content = content.replace(
+            """[amcharts id="chart-{}"]""".format(amchart_id),
+            """<div id="amcharts-{}">[amcharts id="chart-{}"]</div>""".format(
+                amchart_id, amchart_id
+            ),
+        )
+    return content
+
+
+def replace_videos_code(content):
+    videos = re.finditer(r"""\[video poster="(.*)" src="(.*)"\]""", content)
+    for video in videos:
+        video_poster = video.group(1)
+        video_src = video.group(2)
+        content = content.replace(
+            """[video poster="{}" src="{}"]""".format(video_poster, video_src),
+            """<figure class="wp-block-video"><video controls="" poster="{}" preload="none" src="{}"></video></figure>""".format(
+                video_poster, video_src
+            ),
+        )
+    return content
+
+
+def html_to_markdown(raw_html: str):
+    soup_content = BeautifulSoup(raw_html, "html.parser")
+    imgs = soup_content.find_all("img")
+    remove_attrs = set(["srcset", "class", "decoding", "height", "sizes", "width"])
+    for img in imgs:
+        img_attrs = dict(img.attrs)
+        for img_attr in img_attrs:
+            if img_attr in remove_attrs:
+                del img.attrs[img_attr]
+    if soup_content is not None:
+        elements = soup_content.find_all(
+            True,
+            class_=[
+                "crp_related",
+                "topBanner",
+                "bottomBanner",
+                "wp-block-advgb-summary",
+                "yoast-table-of-contents",
+                "exclusiveStatement",
+                "companyLocation",
+                "CommentsAndShare",
+                "AI_Summary",
+                "AI_QA",
+                "btn-group",
+                "current_usnews_ranking",
+            ],
+        )
+        for element in elements:
+            element.decompose()  # delete elements in class array
+        elements = soup_content.find_all(
+            True,
+            id=[
+                "crp_related",
+            ],
+        )
+        for element in elements:
+            element.decompose()  # delete elements in id array
+        elements = soup_content.findAll(["svg", "style", "script", "noscript"])
+        for element in elements:
+            element.decompose()  # delete elements of other types like scripts and style
+        amcharts = soup_content.find_all("div", id=re.compile("^amcharts-"))
+        for amchart_element in amcharts:  # replace amcharts with amcharts shortcode
+            amchart_id = amchart_element.get("id").replace("amcharts-", "")
+            amchart_element.replace_with(
+                """[amcharts id="chart-{}"]""".format(amchart_id)
+            )
+
+        videos = soup_content.find_all("figure", class_="wp-block-video")
+        for video in videos:
+            video_poster = video.video.attrs["poster"]
+            video_src = video.video.attrs["src"]
+            video.replace_with(
+                """[video poster="{}" src="{}"]""".format(video_poster, video_src)
+            )
+    content = markdownify.markdownify(str(soup_content), escape_misc=False)
+    return content

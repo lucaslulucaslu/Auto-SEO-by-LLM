@@ -27,3 +27,8 @@ class ReviseOutput(BaseModel):
     revises: list[ReviseSingle] = Field(
         description="包含文章内容修改意见和具体搜索词条的数组"
     )
+
+
+class PostTitleTags(BaseModel):
+    title: str = Field(description="根据文章内容更新后的新标题")
+    tags: list[str] = Field(description="根据文章内容生成的标签")
