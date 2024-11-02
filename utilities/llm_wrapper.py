@@ -6,7 +6,7 @@ TIMEOUT = 40
 client = OpenAI()
 
 
-def llm_wrapper(sys_prompt, user_prompt, response_format=None):
+def llm_wrapper(sys_prompt, user_prompt, response_format=None, timeout=TIMEOUT):
     if response_format:
         response = client.beta.chat.completions.parse(
             model=MODEL,
@@ -16,7 +16,7 @@ def llm_wrapper(sys_prompt, user_prompt, response_format=None):
             ],
             response_format=response_format,
             temperature=TEMPERATURE,
-            timeout=TIMEOUT,
+            timeout=timeout,
         )
         return response.choices[0].message.parsed
     else:
@@ -27,7 +27,7 @@ def llm_wrapper(sys_prompt, user_prompt, response_format=None):
                 {"role": "user", "content": user_prompt},
             ],
             temperature=TEMPERATURE,
-            timeout=TIMEOUT,
+            timeout=timeout,
         )
         return response.choices[0].message.content
 
