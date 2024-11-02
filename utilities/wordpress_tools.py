@@ -7,6 +7,7 @@ import pandas as pd
 import pymysql
 import requests
 from bs4 import BeautifulSoup
+
 from utilities.llm_wrapper import llm_wrapper
 
 wp_url = "https://www.forwardpathway.com/wp-json/wp/v2"
@@ -399,3 +400,11 @@ def update_summary_qa(post_ID, content):
     cursor.close()
     connection.close()
     return
+
+
+def image_insert_fuc(content):
+    paragraphs = content.split("\n\n")
+    middle_index = len(paragraphs) // 2
+    paragraphs.insert(middle_index, "[image_placeholder]")
+    new_content = "\n\n".join(paragraphs)
+    return new_content

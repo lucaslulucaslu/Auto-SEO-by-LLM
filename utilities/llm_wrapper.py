@@ -1,15 +1,17 @@
 from openai import OpenAI
 
-MODEL = "gpt-4o-mini"
+MODEL = ["gpt-4o-mini", "gpt-4o"]
 TEMPERATURE = 0
 TIMEOUT = 40
 client = OpenAI()
 
 
-def llm_wrapper(sys_prompt, user_prompt, response_format=None, timeout=TIMEOUT):
+def llm_wrapper(
+    sys_prompt, user_prompt, response_format=None, timeout=TIMEOUT, model=0
+):
     if response_format:
         response = client.beta.chat.completions.parse(
-            model=MODEL,
+            model=MODEL[model],
             messages=[
                 {"role": "system", "content": sys_prompt},
                 {"role": "user", "content": user_prompt},
@@ -21,7 +23,7 @@ def llm_wrapper(sys_prompt, user_prompt, response_format=None, timeout=TIMEOUT):
         return response.choices[0].message.parsed
     else:
         response = client.chat.completions.create(
-            model=MODEL,
+            model=MODEL[model],
             messages=[
                 {"role": "system", "content": sys_prompt},
                 {"role": "user", "content": user_prompt},
