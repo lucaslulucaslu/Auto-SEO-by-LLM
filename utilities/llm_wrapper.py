@@ -1,8 +1,9 @@
 import tiktoken
+from langsmith import traceable
 from openai import OpenAI
 
 MODEL = ["gpt-4o-mini", "gpt-4o"]
-TEMPERATURE = 0
+TEMPERATURE = 0.2
 TIMEOUT = 40
 client = OpenAI()
 
@@ -14,61 +15,69 @@ def tokens_count(text: str, model=0):
 
 
 def llm_wrapper(
-    sys_prompt, user_prompt, response_format=None, timeout=TIMEOUT, model=0
+    sys_prompt,
+    user_prompt,
+    response_format=None,
+    timeout=TIMEOUT,
+    model=0,
+    temperature=TEMPERATURE,
 ):
     if response_format:
-        response = client.beta.chat.completions.parse(
-            model=MODEL[model],
-            messages=[
-                {"role": "system", "content": sys_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
+        response = llm_wrapper_raw(
+            sys_prompt,
+            user_prompt,
             response_format=response_format,
-            temperature=TEMPERATURE,
             timeout=timeout,
+            model=model,
+            temperature=temperature,
         )
         return response.choices[0].message.parsed
     else:
-        response = client.chat.completions.create(
-            model=MODEL[model],
-            messages=[
-                {"role": "system", "content": sys_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=TEMPERATURE,
+        response = llm_wrapper_raw(
+            sys_prompt,
+            user_prompt,
             timeout=timeout,
+            model=model,
+            temperature=temperature,
         )
         return response.choices[0].message.content
 
 
+@traceable(
+    run_type="llm", metadata={"ls_model_name": "gpt-4o-mini", "ls_provider": "openai"}
+)
 def llm_wrapper_raw(
-    sys_prompt, user_prompt, response_format=None, timeout=TIMEOUT, model=0
+    sys_prompt,
+    user_prompt,
+    response_format=None,
+    timeout=TIMEOUT,
+    model=0,
+    temperature=TEMPERATURE,
 ):
     if response_format:
-        response = client.beta.chat.completions.parse(
+        return client.beta.chat.completions.parse(
             model=MODEL[model],
             messages=[
                 {"role": "system", "content": sys_prompt},
                 {"role": "user", "content": user_prompt},
             ],
             response_format=response_format,
-            temperature=TEMPERATURE,
+            temperature=temperature,
             timeout=timeout,
         )
-        return response
     else:
-        response = client.chat.completions.create(
+        return client.chat.completions.create(
             model=MODEL[model],
             messages=[
                 {"role": "system", "content": sys_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            temperature=TEMPERATURE,
+            temperature=temperature,
             timeout=timeout,
         )
-        return response
 
 
+@traceable
 def llm_image_wrapper(image_query):
     return (
         client.images.generate(
