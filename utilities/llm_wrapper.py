@@ -3,7 +3,7 @@ from langsmith import traceable
 from openai import OpenAI
 
 MODEL = ["gpt-4o-mini", "gpt-4o"]
-TEMPERATURE = 0.2
+TEMPERATURE = 0.5
 TIMEOUT = 40
 client = OpenAI()
 

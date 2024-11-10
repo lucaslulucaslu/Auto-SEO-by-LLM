@@ -91,7 +91,7 @@ def get_rewrite_post_ID():
     query = """SELECT t3.ID FROM (SELECT t2.ID,t2.post_modified FROM fp_forwardpathway.`wp_mmcp_term_relationships` t1
 JOIN fp_forwardpathway.wp_mmcp_posts t2 ON t2.ID=t1.object_id AND t2.post_status="publish"
 AND t2.ID NOT IN (SELECT post_id FROM fp_chatGPT.void_posts)
-WHERE t1.`term_taxonomy_id` IN (3,2294,2295,2293,2180,1,1758,35,2350,2351,36,6,1278)
+WHERE t1.`term_taxonomy_id` IN (3,2294,2295,2293,2180,1,1758,35,2350,2351,36,1278,6,3579,3580,3577,3627)
 GROUP BY t2.ID ORDER BY t2.post_modified ASC LIMIT 10) t3
 ORDER BY RAND() LIMIT 1"""
     cursor.execute(query)
