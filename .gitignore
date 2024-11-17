@@ -5,3 +5,4 @@ remove old comments SQL.txt
 venv/
 __pycache__/
 *.pyc
+fine_tune.*
