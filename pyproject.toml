@@ -1,33 +1,32 @@
-[tool.poetry]
+[project]
+authors = [
+    {name = "Lucas Lu", email = "33080381+shichenglu@users.noreply.github.com"},
+]
+requires-python = "<4.0,>=3.12"
+dependencies = [
+    "markdown2<3.0.0,>=2.5.0",
+    "markdownify<1.0.0,>=0.13.1",
+    "pandas<3.0.0,>=2.2.2",
+    "tiktoken<1.0.0,>=0.7.0",
+    "langchain<1.0.0,>=0.2.16",
+    "langgraph<1.0.0,>=0.2.19",
+    "langchain-community<1.0.0,>=0.2.16",
+    "pydantic<3.0.0,>=2.9.1",
+    "pymysql<2.0.0,>=1.1.1",
+    "langchain-experimental<1.0.0,>=0.0.65",
+    "neo4j<6.0.0,>=5.24.0",
+    "beautifulsoup4<5.0.0,>=4.12.3",
+    "pillow<12.0.0,>=11.0.0",
+    "openai<2.0.0,>=1.53.0",
+]
 name = "auto-seo-by-llm"
 version = "0.1.0"
 description = ""
-authors = ["Lucas Lu <33080381+shichenglu@users.noreply.github.com>"]
 readme = "README.md"
 
-[tool.poetry.dependencies]
-python = "^3.12"
-markdown2 = "^2.5.0"
-markdownify = "^0.13.1"
-pandas = "^2.2.2"
-tiktoken = "^0.7.0"
-langchain = "^0.2.16"
-langgraph = "^0.2.19"
-langchain-community = "^0.2.16"
-pydantic = "^2.9.1"
-pymysql = "^1.1.1"
-langchain-experimental = "^0.0.65"
-neo4j = "^5.24.0"
-beautifulsoup4 = "^4.12.3"
-pillow = "^11.0.0"
-openai = "^1.53.0"
-
-
-[tool.poetry.group.dev.dependencies]
-black = "^24.10.0"
-jupyter-black = "^0.4.0"
-isort = "^5.13.2"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[dependency-groups]
+dev = [
+    "black<25.0.0,>=24.10.0",
+    "jupyter-black<1.0.0,>=0.4.0",
+    "isort<6.0.0,>=5.13.2",
+]
