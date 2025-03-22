@@ -18,6 +18,7 @@ dependencies = [
     "beautifulsoup4<5.0.0,>=4.12.3",
     "pillow<12.0.0,>=11.0.0",
     "openai<2.0.0,>=1.53.0",
+    "google-genai>=1.7.0",
 ]
 name = "auto-seo-by-llm"
 version = "0.1.0"

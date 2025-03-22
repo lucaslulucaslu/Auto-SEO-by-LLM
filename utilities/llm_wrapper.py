@@ -1,11 +1,11 @@
 import tiktoken
 from langsmith import traceable
-from openai import OpenAI
+from google import genai
+import os
+from google.genai import types
 
-MODEL = ["gpt-4o-mini", "gpt-4o"]
-TEMPERATURE = 0.5
-TIMEOUT = 40
-client = OpenAI()
+MODEL = ["gemini-2.0-flash"]
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 
 def tokens_count(text: str, model=0):
@@ -18,75 +18,69 @@ def llm_wrapper(
     sys_prompt,
     user_prompt,
     response_format=None,
-    timeout=TIMEOUT,
     model=0,
-    temperature=TEMPERATURE,
 ):
     if response_format:
         response = llm_wrapper_raw(
             sys_prompt,
             user_prompt,
             response_format=response_format,
-            timeout=timeout,
             model=model,
-            temperature=temperature,
         )
-        return response.choices[0].message.parsed
+        return response.parsed
     else:
         response = llm_wrapper_raw(
             sys_prompt,
             user_prompt,
-            timeout=timeout,
             model=model,
-            temperature=temperature,
         )
-        return response.choices[0].message.content
+        return response.text
 
 
 @traceable(
-    run_type="llm", metadata={"ls_model_name": "gpt-4o-mini", "ls_provider": "openai"}
+    run_type="llm", metadata={"ls_model_name": "gemini-2.0-flash", "ls_provider": "google"}
 )
 def llm_wrapper_raw(
     sys_prompt,
     user_prompt,
     response_format=None,
-    timeout=TIMEOUT,
     model=0,
-    temperature=TEMPERATURE,
 ):
     if response_format:
-        return client.beta.chat.completions.parse(
+        return client.models.generate_content(
             model=MODEL[model],
-            messages=[
-                {"role": "system", "content": sys_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            response_format=response_format,
-            temperature=temperature,
-            timeout=timeout,
+            contents=sys_prompt+user_prompt,
+            config={
+                "response_mime_type":"application/json",
+                "response_schema": response_format,
+            }
         )
     else:
-        return client.chat.completions.create(
+        return client.models.generate_content(
             model=MODEL[model],
-            messages=[
-                {"role": "system", "content": sys_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=temperature,
-            timeout=timeout,
+            contents=sys_prompt+user_prompt,
         )
 
 
 @traceable
 def llm_image_wrapper(image_query):
     return (
-        client.images.generate(
-            model="dall-e-3",
-            size="1792x1024",
-            quality="standard",
+        client.models.generate_images(
+            model="imagen-3.0-generate-002",
             prompt=image_query,
-            n=1,
+            config=types.GenerateImagesConfig(
+                number_of_images=1,  # Number of images to generate
+                aspect_ratio="16:9",  # Aspect ratio of the image
+            ),
         )
-        .data[0]
-        .url
+        .generated_images[0]
     )
+
+if __name__ == "__main__":
+    from io import BytesIO
+    from PIL import Image
+    
+    image_query = "A futuristic city skyline at sunset."
+    generated_image=llm_image_wrapper(image_query)
+    with Image.open(BytesIO(generated_image.image.image_bytes)) as image:
+        image.show()
