@@ -1,4 +1,3 @@
-import tiktoken
 from langsmith import traceable
 from google import genai
 import os
@@ -9,8 +8,10 @@ client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 
 def tokens_count(text: str, model=0):
-    encoding = tiktoken.encoding_for_model(MODEL[model])
-    token_length = len(encoding.encode(text))
+    token_length = client.models.count_tokens(
+        model=MODEL[model],
+        contents=text
+    )
     return token_length
 
 
@@ -47,7 +48,7 @@ def llm_wrapper_raw(
     model=0,
 ):
     if response_format:
-        return client.models.generate_content(
+        response = client.models.generate_content(
             model=MODEL[model],
             contents=sys_prompt+user_prompt,
             config={
@@ -56,10 +57,12 @@ def llm_wrapper_raw(
             }
         )
     else:
-        return client.models.generate_content(
+        response = client.models.generate_content(
             model=MODEL[model],
             contents=sys_prompt+user_prompt,
         )
+
+    return response
 
 
 @traceable
@@ -77,10 +80,13 @@ def llm_image_wrapper(image_query):
     )
 
 if __name__ == "__main__":
-    from io import BytesIO
-    from PIL import Image
+    # from io import BytesIO
+    # from PIL import Image
     
-    image_query = "A futuristic city skyline at sunset."
-    generated_image=llm_image_wrapper(image_query)
-    with Image.open(BytesIO(generated_image.image.image_bytes)) as image:
-        image.show()
+    # image_query = "A futuristic city skyline at sunset."
+    # generated_image=llm_image_wrapper(image_query)
+    # with Image.open(BytesIO(generated_image.image.image_bytes)) as image:
+    #     image.show()
+
+    response = llm_wrapper_raw("You are a helpful assistant.", "What is the capital of France?")
+    print(response.candidates[0].finish_reason=="MAX_TOKENS")
