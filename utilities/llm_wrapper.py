@@ -1,4 +1,4 @@
-from langsmith import traceable
+from langfuse.decorators import observe, langfuse_context
 from google import genai
 import os
 from google.genai import types
@@ -8,10 +8,7 @@ client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 
 def tokens_count(text: str, model=0):
-    token_length = client.models.count_tokens(
-        model=MODEL[model],
-        contents=text
-    )
+    token_length = client.models.count_tokens(model=MODEL[model], contents=text)
     return token_length
 
 
@@ -38,9 +35,7 @@ def llm_wrapper(
         return response.text
 
 
-@traceable(
-    run_type="llm", metadata={"ls_model_name": "gemini-2.0-flash", "ls_provider": "google"}
-)
+@observe(as_type="generation")
 def llm_wrapper_raw(
     sys_prompt,
     user_prompt,
@@ -50,43 +45,67 @@ def llm_wrapper_raw(
     if response_format:
         response = client.models.generate_content(
             model=MODEL[model],
-            contents=sys_prompt+user_prompt,
+            contents=sys_prompt + user_prompt,
             config={
-                "response_mime_type":"application/json",
+                "response_mime_type": "application/json",
                 "response_schema": response_format,
-            }
+            },
+        )
+        langfuse_context.update_current_observation(
+            model=MODEL[model],
+            output=response.parsed,
+            usage_details={
+                "input": response.usage_metadata.prompt_token_count,
+                "output": response.usage_metadata.candidates_token_count,
+                "total": response.usage_metadata.total_token_count,
+            },
         )
     else:
         response = client.models.generate_content(
             model=MODEL[model],
-            contents=sys_prompt+user_prompt,
+            contents=sys_prompt + user_prompt,
+        )
+        langfuse_context.update_current_observation(
+            model=MODEL[model],
+            output=response.text,
+            usage_details={
+                "input": response.usage_metadata.prompt_token_count,
+                "output": response.usage_metadata.candidates_token_count,
+                "total": response.usage_metadata.total_token_count,
+            },
         )
 
     return response
 
 
-@traceable
+@observe(as_type="generation")
 def llm_image_wrapper(image_query):
-    return (
-        client.models.generate_images(
-            model="imagen-3.0-generate-002",
-            prompt=image_query,
-            config=types.GenerateImagesConfig(
-                number_of_images=1,  # Number of images to generate
-                aspect_ratio="16:9",  # Aspect ratio of the image
-            ),
-        )
-        .generated_images[0]
+
+    response = client.models.generate_images(
+        model="imagen-3.0-generate-002",
+        prompt=image_query,
+        config=types.GenerateImagesConfig(
+            number_of_images=1,  # Number of images to generate
+            aspect_ratio="16:9",  # Aspect ratio of the image
+        ),
     )
+    langfuse_context.update_current_observation(
+        model="imagen-3.0-generate-002",
+        output="image generated",
+        cost_details={
+            "input": 0,
+            "output": 0.04,
+        },
+    )
+    return response.generated_images[0]
+
 
 if __name__ == "__main__":
     # from io import BytesIO
     # from PIL import Image
-    
+
     # image_query = "A futuristic city skyline at sunset."
     # generated_image=llm_image_wrapper(image_query)
     # with Image.open(BytesIO(generated_image.image.image_bytes)) as image:
     #     image.show()
-
-    response = llm_wrapper_raw("You are a helpful assistant.", "What is the capital of France?")
-    print(response.candidates[0].finish_reason=="MAX_TOKENS")
+    pass

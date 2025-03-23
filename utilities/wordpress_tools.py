@@ -370,7 +370,7 @@ def tags_to_IDs_en(tag_names=[]):
 def update_summary_qa(post_ID, content):
 
     system_prompt = """你的角色是美国留学专家，输入内容是一篇与美国留学相关的文章，根据输入的内容对全文进行总结，并在最后根据文章长度估计全文的阅读时间，\
-        输出内容250字左右，不分段，只包含总结内容不包含任何标题。"""
+        输出内容250字左右，不分段，只包含总结内容，不包含任何标题。输出格式为纯文字，不要使用任何格式信息。"""
     user_prompt = f"文章内容: {content}"
     summary = llm_wrapper(system_prompt, user_prompt).strip()
     system_prompt = """你是美国留学领域的专家。用户将输入一段关于美国留学相关的文章，请你根据该文章内容提出5个读者可能会感兴趣的问题，并分别提供详细的回答。\
