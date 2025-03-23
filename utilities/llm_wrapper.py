@@ -12,29 +12,6 @@ def tokens_count(text: str, model=0):
     return token_length
 
 
-def llm_wrapper(
-    sys_prompt,
-    user_prompt,
-    response_format=None,
-    model=0,
-):
-    if response_format:
-        response = llm_wrapper_raw(
-            sys_prompt,
-            user_prompt,
-            response_format=response_format,
-            model=model,
-        )
-        return response.parsed
-    else:
-        response = llm_wrapper_raw(
-            sys_prompt,
-            user_prompt,
-            model=model,
-        )
-        return response.text
-
-
 @observe(as_type="generation")
 def llm_wrapper_raw(
     sys_prompt,
@@ -80,23 +57,49 @@ def llm_wrapper_raw(
 
 @observe(as_type="generation")
 def llm_image_wrapper(image_query):
-
-    response = client.models.generate_images(
-        model="imagen-3.0-generate-002",
-        prompt=image_query,
-        config=types.GenerateImagesConfig(
-            number_of_images=1,  # Number of images to generate
-            aspect_ratio="16:9",  # Aspect ratio of the image
-        ),
-    )
-    langfuse_context.update_current_observation(
-        model="imagen-3.0-generate-002",
-        output="image generated",
-        cost_details={
-            "input": 0,
-            "output": 0.04,
-        },
-    )
+    retry = 3
+    image_queries = [image_query]  # Store the original query for logging
+    while retry > 0:
+        response = client.models.generate_images(
+            model="imagen-3.0-generate-002",
+            prompt=image_query,
+            config=types.GenerateImagesConfig(
+                number_of_images=1,  # Number of images to generate
+                aspect_ratio="16:9",  # Aspect ratio of the image
+            ),
+        )
+        if response.generated_images:
+            langfuse_context.update_current_observation(
+                model="imagen-3.0-generate-002",
+                input=image_queries,
+                output={"image generated": True, "tried": 4 - retry},
+                cost_details={
+                    "input": 0,
+                    "output": 0.04,
+                },
+            )
+            break
+        else:
+            langfuse_context.update_current_observation(
+                model="imagen-3.0-generate-002",
+                input=image_queries,
+                output={
+                    "image generated": False,
+                    "tried": 4 - retry,
+                    "response": response,
+                },
+                cost_details={
+                    "input": 0,
+                    "output": 0,
+                },
+            )
+            image_query = llm_wrapper_raw(
+                sys_prompt=f"Generate one new image prompt that will not violate google's policy based on original prompt: \n\n{image_query}\n\n\
+                    Only output the new prompt without any additional text.",
+                user_prompt="",
+            ).text
+            image_queries.append(image_query)  # Append the new query for logging
+            retry -= 1
     return response.generated_images[0]
 
 
@@ -108,4 +111,8 @@ if __name__ == "__main__":
     # generated_image=llm_image_wrapper(image_query)
     # with Image.open(BytesIO(generated_image.image.image_bytes)) as image:
     #     image.show()
-    pass
+    response = llm_wrapper_raw(
+        sys_prompt="You are a helpful assistant.",
+        user_prompt="What is the capital of France?",
+    )
+    print(response)

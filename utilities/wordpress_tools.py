@@ -9,7 +9,7 @@ import pymysql
 import requests
 from bs4 import BeautifulSoup
 
-from utilities.llm_wrapper import llm_wrapper
+from utilities.llm_wrapper import llm_wrapper_raw
 
 wp_url = "https://www.forwardpathway.com/wp-json/wp/v2"
 wp_post_url = wp_url + "/posts"
@@ -372,7 +372,7 @@ def update_summary_qa(post_ID, content):
     system_prompt = """你的角色是美国留学专家，输入内容是一篇与美国留学相关的文章，根据输入的内容对全文进行总结，并在最后根据文章长度估计全文的阅读时间，\
         输出内容250字左右，不分段，只包含总结内容，不包含任何标题。输出格式为纯文字，不要使用任何格式信息。"""
     user_prompt = f"文章内容: {content}"
-    summary = llm_wrapper(system_prompt, user_prompt).strip()
+    summary = llm_wrapper_raw(system_prompt, user_prompt).text.strip()
     system_prompt = """你是美国留学领域的专家。用户将输入一段关于美国留学相关的文章，请你根据该文章内容提出5个读者可能会感兴趣的问题，并分别提供详细的回答。\
                 请确保每个问题都与该文章内容紧密相关，并对读者具有实用价值。输出结果请勿将所有问题集中在一起展示，应该按以下格式逐个显示问题和答案，每个问题后面紧接其对应的回答。以下是最终输出格式的例子：
                 '大家都在问的问题：
@@ -383,7 +383,7 @@ def update_summary_qa(post_ID, content):
                 ...'
                 请确保按照上述格式输出结果。"""
     user_prompt = f"文章内容: {content}"
-    qa = llm_wrapper(system_prompt, user_prompt).strip()
+    qa = llm_wrapper_raw(system_prompt, user_prompt).text.strip()
     qa = markdown2.markdown(qa).replace("</p>\n\n<p>", "</p>\n<p>")
     connection = pymysql.connect(
         db=os.environ["db_name"],
