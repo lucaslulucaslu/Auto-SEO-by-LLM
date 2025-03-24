@@ -5,6 +5,7 @@ from google.genai import types
 
 MODEL = ["gemini-2.0-flash"]
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+RETRY_LIMIT = 5  # Retry limit for image generation
 
 
 def tokens_count(text: str, model=0):
@@ -57,7 +58,7 @@ def llm_wrapper_raw(
 
 @observe(as_type="generation")
 def llm_image_wrapper(image_query):
-    retry = 3
+    retry = RETRY_LIMIT
     image_queries = [image_query]  # Store the original query for logging
     while retry > 0:
         response = client.models.generate_images(
@@ -72,7 +73,7 @@ def llm_image_wrapper(image_query):
             langfuse_context.update_current_observation(
                 model="imagen-3.0-generate-002",
                 input=image_queries,
-                output={"image generated": True, "tried": 4 - retry},
+                output={"image generated": True, "tried": RETRY_LIMIT + 1 - retry},
                 cost_details={
                     "input": 0,
                     "output": 0.04,
@@ -85,13 +86,14 @@ def llm_image_wrapper(image_query):
                 input=image_queries,
                 output={
                     "image generated": False,
-                    "tried": 4 - retry,
+                    "tried": RETRY_LIMIT + 1 - retry,
                     "response": response,
                 },
                 cost_details={
                     "input": 0,
                     "output": 0,
                 },
+                tags=["image_generation_retried"]
             )
             image_query = llm_wrapper_raw(
                 sys_prompt=f"Generate one new image prompt that will not violate google's policy based on original prompt: \n\n{image_query}\n\n\
