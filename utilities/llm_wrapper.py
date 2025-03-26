@@ -69,11 +69,11 @@ def llm_wrapper_raw(sys_prompt, user_prompt, response_format=None, model=MODEL):
 @observe(as_type="generation")
 def llm_image_wrapper(image_query):
     retry_count = 0
-    # Store the original query for logging
+    image_queries = []
     error_messages = []
     while retry_count < RETRY_LIMIT:
         retry_count += 1
-        image_queries = [image_query]
+        image_queries.append(image_query)
         try:
             response = client.models.generate_images(
                 model=IMAGE_MODEL,
