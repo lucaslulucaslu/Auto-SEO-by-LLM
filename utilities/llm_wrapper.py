@@ -41,7 +41,7 @@ def llm_wrapper_raw(sys_prompt, user_prompt, response_format=None, model=MODEL):
                 )
                 if hasattr(response,"error"):
                     raise Exception(response["error"])
-                langfuse_output = response
+                langfuse_output = response.text
             langfuse_context.update_current_observation(
                 model=model,
                 output=langfuse_output,
