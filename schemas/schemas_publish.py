@@ -40,7 +40,7 @@ class MetaFormat(BaseModel):
         description="与文章内容相关的文章英文标题，长度在10到20个英文单词，用英文输出"
     )
     image_query: str = Field(
-        description="detailed prompt to generate an image that based on the article content, should be in English"
+        description="a detailed prompt to generate an image that based on the article content, should be in English, output only one image prompt"
     )
     image_filename: str = Field(
         description="a good name for the image file without file extension, should be in English"
