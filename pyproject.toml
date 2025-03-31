@@ -20,6 +20,8 @@ dependencies = [
     "openai<2.0.0,>=1.53.0",
     "google-genai>=1.7.0",
     "langfuse>=2.60.1",
+    "playwright>=1.51.0",
+    "pip>=25.0.1",
 ]
 name = "auto-seo-by-llm"
 version = "0.1.0"
