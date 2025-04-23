@@ -2,10 +2,11 @@ from langfuse.decorators import observe, langfuse_context
 from google import genai
 import os
 from google.genai import types
+from google.genai.types import GenerateContentConfig, ThinkingConfig
 
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
-MODEL = "gemini-2.0-flash"
+MODEL = "gemini-2.5-flash-preview-04-17"
 IMAGE_MODEL = "imagen-3.0-generate-002"
 RETRY_LIMIT = 5  # Retry limit for image generation
 
@@ -26,20 +27,24 @@ def llm_wrapper_raw(sys_prompt, user_prompt, response_format=None, model=MODEL):
                 response = client.models.generate_content(
                     model=model,
                     contents=sys_prompt + user_prompt,
-                    config={
-                        "response_mime_type": "application/json",
-                        "response_schema": response_format,
-                    },
+                    config=GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema=response_format,
+                        thinking_config=ThinkingConfig(thinking_budget=0),
+                    ),
                 )
-                if hasattr(response,"error"):
+                if hasattr(response, "error"):
                     raise Exception(response["error"])
                 langfuse_output = response.parsed
             else:
                 response = client.models.generate_content(
                     model=model,
                     contents=sys_prompt + user_prompt,
+                    config=GenerateContentConfig(
+                        thinking_config=ThinkingConfig(thinking_budget=0)
+                    ),
                 )
-                if hasattr(response,"error"):
+                if hasattr(response, "error"):
                     raise Exception(response["error"])
                 langfuse_output = response.text
             langfuse_context.update_current_observation(
@@ -123,7 +128,6 @@ def llm_image_wrapper(image_query):
                     Only output the new prompt without any additional text.",
                 user_prompt="",
             ).text
-    
 
 
 if __name__ == "__main__":
