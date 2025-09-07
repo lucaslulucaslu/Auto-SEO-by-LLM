@@ -7,7 +7,7 @@ from google.genai.types import GenerateContentConfig, ThinkingConfig
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 MODEL = "gemini-2.5-flash"
-IMAGE_MODEL = "imagen-3.0-generate-002"
+IMAGE_MODEL = "imagen-4.0-generate-001"
 RETRY_LIMIT = 5  # Retry limit for image generation
 
 
