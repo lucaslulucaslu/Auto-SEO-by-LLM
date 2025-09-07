@@ -21,7 +21,8 @@ dependencies = [
     "langfuse>=2.60.1",
     "playwright>=1.51.0",
     "pip>=25.0.1",
-    "google-genai>=1.11.0",
+    "google-genai>=1.33.0",
+    "comm>=0.2.3",
 ]
 name = "auto-seo-by-llm"
 version = "0.1.0"

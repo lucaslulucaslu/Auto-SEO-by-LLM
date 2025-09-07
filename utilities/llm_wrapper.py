@@ -130,6 +130,34 @@ def llm_image_wrapper(image_query):
             ).text
 
 
+def llm_wrapper_url_summary(url):
+    tools = [
+        {"url_context": {}},
+    ]
+
+    summary_prompt = """
+        Task Description: You are a professional news summarizer. Based on the content of the webpage provided by url: {url}, create a news summary of \
+            approximately 500 English words.The summary must be written in English, ensuring comprehensive coverage of the information.
+        Specific Requirements:
+        1. News Summary: Extract the core content of the news, ensuring the information is complete and coherent. \
+            The length should be around 500 English words.
+        2. Title Extraction: If the webpage already contains a title, extract it. If there is no title, summarize an appropriate title based on the content. \
+            The title must be in English.
+        3. Date Information: If the webpage includes a publication date, make sure to include this date in the news summary, \
+            using a format that includes the year.
+        4. Content Related to U.S. Universities: If the webpage mentions U.S. universities (such as Harvard University, Yale University, etc.), \
+        ensure that any related information (e.g., connection to the event or the author) is included in the summary.
+        """
+    response = client.models.generate_content(
+        model=MODEL,
+        contents=summary_prompt.format(url=url),
+        config=GenerateContentConfig(tools=tools),
+    )
+    if 'URL_RETRIEVAL_STATUS_ERROR' in [metadata.url_retrieval_status for metadata in response.candidates[0].url_context_metadata.url_metadata]:
+        return None
+    return "\n".join([each.text for each in response.candidates[0].content.parts])
+
+
 if __name__ == "__main__":
     from io import BytesIO
     from PIL import Image
