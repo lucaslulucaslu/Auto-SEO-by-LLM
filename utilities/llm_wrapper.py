@@ -1,8 +1,11 @@
 from langfuse.decorators import observe, langfuse_context
 from google import genai
 import os
+from dotenv import load_dotenv
 from google.genai import types
 from google.genai.types import GenerateContentConfig, ThinkingConfig
+
+load_dotenv()
 
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
